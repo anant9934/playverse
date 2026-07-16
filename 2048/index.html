@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>2048 – Premium Browser Game</title>
+<meta name="description" content="The classic 2048 puzzle game with vibrant gradient design and smooth animations."/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Outfit',sans-serif;
+  min-height:100vh;
+  background:linear-gradient(135deg,#f093fb 0%,#f5576c 40%,#fda085 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding:20px;
+}
+h1{
+  font-size:3rem;font-weight:900;color:#fff;
+  text-shadow:0 4px 24px rgba(0,0,0,.2);letter-spacing:-2px;
+}
+.subtitle{color:rgba(255,255,255,.85);font-size:.92rem;margin-top:-14px;font-weight:500}
+
+/* Top bar */
+.top-bar{
+  display:flex;align-items:center;gap:12px;width:100%;max-width:440px;
+  justify-content:space-between;
+}
+.score-group{display:flex;gap:10px;}
+.score-box{
+  background:#fff;border-radius:16px;padding:10px 20px;
+  text-align:center;min-width:88px;
+  box-shadow:0 6px 24px rgba(0,0,0,.12);
+}
+.score-box .val{font-size:1.5rem;font-weight:900;background:linear-gradient(135deg,#f093fb,#f5576c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.score-box .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:1.5px;color:#a0aec0;font-weight:600;margin-top:1px}
+
+.btn-new{
+  padding:12px 22px;border:none;border-radius:14px;
+  background:#fff;color:#f5576c;
+  font-family:'Outfit',sans-serif;font-size:.9rem;font-weight:800;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 4px 18px rgba(0,0,0,.12);
+}
+.btn-new:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.18)}
+.btn-new:active{transform:translateY(0)}
+
+/* Board */
+.board-wrap{
+  background:#fff;border-radius:24px;padding:14px;
+  box-shadow:0 20px 60px rgba(0,0,0,.2);
+  position:relative;
+}
+.grid-bg{display:grid;grid-template-columns:repeat(4,100px);grid-template-rows:repeat(4,100px);gap:10px;}
+.cell{background:#f7f0ff;border-radius:12px;}
+.tiles-layer{position:absolute;inset:14px;pointer-events:none}
+
+/* Tiles */
+.tile{
+  position:absolute;width:100px;height:100px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;transition:left .1s,top .1s;
+  animation:tileIn .12s ease-out;
+  box-shadow:0 4px 14px rgba(0,0,0,.1);
+}
+@keyframes tileIn{0%{transform:scale(.7)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes merged{0%{transform:scale(1)}40%{transform:scale(1.15)}100%{transform:scale(1)}}
+.tile.merged{animation:merged .18s ease-out}
+
+.tile[data-v="2"]   {background:#fff9f0;color:#776e65;font-size:2.6rem}
+.tile[data-v="4"]   {background:#fff3dc;color:#776e65;font-size:2.6rem}
+.tile[data-v="8"]   {background:linear-gradient(135deg,#fda085,#f6d365);color:#fff;font-size:2.6rem}
+.tile[data-v="16"]  {background:linear-gradient(135deg,#f5576c,#fda085);color:#fff;font-size:2.4rem}
+.tile[data-v="32"]  {background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:2.4rem}
+.tile[data-v="64"]  {background:linear-gradient(135deg,#c471ed,#f64f59);color:#fff;font-size:2.4rem}
+.tile[data-v="128"] {background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:2rem;box-shadow:0 0 24px rgba(102,126,234,.4)}
+.tile[data-v="256"] {background:linear-gradient(135deg,#4facfe,#00f2fe);color:#fff;font-size:2rem;box-shadow:0 0 28px rgba(79,172,254,.4)}
+.tile[data-v="512"] {background:linear-gradient(135deg,#43e97b,#38f9d7);color:#fff;font-size:2rem;box-shadow:0 0 28px rgba(67,233,123,.4)}
+.tile[data-v="1024"]{background:linear-gradient(135deg,#f5c842,#f0a030);color:#fff;font-size:1.6rem;box-shadow:0 0 32px rgba(245,200,66,.5)}
+.tile[data-v="2048"]{background:linear-gradient(135deg,#f5c842,#f093fb,#f5576c);color:#fff;font-size:1.5rem;box-shadow:0 0 40px rgba(245,200,66,.6);animation:rainbow 1.2s infinite alternate}
+@keyframes rainbow{from{box-shadow:0 0 20px #f5c842}to{box-shadow:0 0 50px #f5576c,0 0 80px #f093fb}}
+
+/* Overlay */
+.overlay{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:rgba(255,255,255,.95);border-radius:24px;
+  opacity:0;pointer-events:none;transition:opacity .3s;z-index:10;
+}
+.overlay.show{opacity:1;pointer-events:all}
+.overlay-icon{font-size:3.5rem}
+.overlay h2{font-size:2rem;font-weight:900;background:linear-gradient(135deg,#f093fb,#f5576c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.overlay p{color:#718096;font-size:.9rem;font-weight:500}
+.btn-restart{
+  padding:13px 34px;border:none;border-radius:14px;
+  background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;
+  font-family:'Outfit',sans-serif;font-size:1rem;font-weight:800;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 6px 24px rgba(245,87,108,.35);
+}
+.btn-restart:hover{transform:scale(1.05);box-shadow:0 8px 30px rgba(245,87,108,.5)}
+
+/* Hint */
+.hint{
+  background:#fff;border-radius:14px;padding:10px 22px;
+  color:#718096;font-size:.82rem;font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,.1);
+}
+kbd{background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;border-radius:6px;padding:2px 8px;font-size:.78rem;font-weight:700}
+</style>
+</head>
+<body>
+<h1>2048</h1>
+<p class="subtitle">Combine tiles to reach 2048!</p>
+
+<div class="top-bar">
+  <div class="score-group">
+    <div class="score-box"><div class="val" id="score">0</div><div class="lbl">Score</div></div>
+    <div class="score-box"><div class="val" id="best">0</div><div class="lbl">Best</div></div>
+  </div>
+  <button class="btn-new" id="btnNew">↺ New</button>
+</div>
+
+<div class="board-wrap" id="boardWrap">
+  <div class="grid-bg" id="grid"></div>
+  <div class="tiles-layer" id="tiles"></div>
+  <div class="overlay" id="overlay">
+    <div class="overlay-icon" id="olIcon">🎯</div>
+    <h2 id="olTitle">Game Over</h2>
+    <p id="olMsg">No moves left!</p>
+    <button class="btn-restart" id="btnRestart">Play Again</button>
+  </div>
+</div>
+
+<div class="hint"><kbd>↑↓←→</kbd> to slide tiles · Swipe on mobile</div>
+
+<script>
+const SZ=4,CELL=100,GAP=10;
+let board,score,best,won;
+best=+localStorage.getItem('2048best')||0;
+
+function newGame(){
+  board=Array.from({length:SZ},()=>Array(SZ).fill(0));
+  score=0;won=false;
+  document.getElementById('overlay').classList.remove('show');
+  addTile();addTile();render();
+}
+
+function addTile(){
+  const empty=[];
+  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++)if(!board[r][c])empty.push({r,c});
+  if(!empty.length)return false;
+  const {r,c}=empty[Math.floor(Math.random()*empty.length)];
+  board[r][c]=Math.random()<.9?2:4;
+  return true;
+}
+
+function render(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('best').textContent=best;
+  const tilesEl=document.getElementById('tiles');
+  tilesEl.innerHTML='';
+  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
+    if(!board[r][c])continue;
+    const t=document.createElement('div');
+    t.className='tile';t.dataset.v=Math.min(board[r][c],2048);
+    t.style.left=(c*(CELL+GAP))+'px';t.style.top=(r*(CELL+GAP))+'px';
+    const v=board[r][c];
+    t.style.fontSize=v>=1000?'1.5rem':v>=100?'1.9rem':v>=10?'2.2rem':'2.6rem';
+    t.textContent=v;tilesEl.appendChild(t);
+  }
+}
+
+function slide(row){
+  let a=row.filter(v=>v),pts=0;
+  for(let i=0;i<a.length-1;i++){if(a[i]===a[i+1]){a[i]*=2;pts+=a[i];a.splice(i+1,1);}}
+  while(a.length<SZ)a.push(0);
+  return{arr:a,pts};
+}
+
+function move(dir){
+  let moved=false,pts=0;
+  const nb=board.map(r=>[...r]);
+  if(dir==='left'||dir==='right'){
+    for(let r=0;r<SZ;r++){
+      let row=nb[r];if(dir==='right')row=row.slice().reverse();
+      const res=slide(row);if(dir==='right')res.arr.reverse();
+      if(res.arr.join()!==nb[r].join())moved=true;
+      nb[r]=res.arr;pts+=res.pts;
+    }
+  }else{
+    for(let c=0;c<SZ;c++){
+      let col=nb.map(r=>r[c]);if(dir==='down')col=col.slice().reverse();
+      const res=slide(col);if(dir==='down')res.arr.reverse();
+      res.arr.forEach((v,r)=>{if(v!==nb[r][c])moved=true;nb[r][c]=v;});pts+=res.pts;
+    }
+  }
+  if(!moved)return;
+  board=nb;score+=pts;
+  if(score>best){best=score;localStorage.setItem('2048best',best);}
+  const added=addTile();
+  if(!won&&board.flat().includes(2048)){
+    won=true;
+    showOverlay('🏆','You Did It!','You reached 2048! Keep going or start fresh.');
+    render();return;
+  }
+  if(!hasMoves()){showOverlay('😔','Game Over','No moves remaining — try again!');render();return;}
+  render();
+}
+
+function hasMoves(){
+  for(let r=0;r<SZ;r++)for(let c=0;c<SZ;c++){
+    if(!board[r][c])return true;
+    if(r<SZ-1&&board[r][c]===board[r+1][c])return true;
+    if(c<SZ-1&&board[r][c]===board[r][c+1])return true;
+  }return false;
+}
+
+function showOverlay(icon,title,msg){
+  document.getElementById('olIcon').textContent=icon;
+  document.getElementById('olTitle').textContent=title;
+  document.getElementById('olMsg').textContent=msg;
+  document.getElementById('overlay').classList.add('show');
+}
+
+// Build empty grid
+const grid=document.getElementById('grid');
+for(let i=0;i<SZ*SZ;i++){const c=document.createElement('div');c.className='cell';grid.appendChild(c);}
+
+document.addEventListener('keydown',e=>{
+  const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'};
+  if(m[e.key]){e.preventDefault();move(m[e.key]);}
+});
+// Touch
+let tx,ty;
+const bw=document.getElementById('boardWrap');
+bw.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+bw.addEventListener('touchend',e=>{
+  const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+  if(Math.abs(dx)<20&&Math.abs(dy)<20)return;
+  if(Math.abs(dx)>Math.abs(dy))move(dx>0?'right':'left');else move(dy>0?'down':'up');
+});
+
+document.getElementById('btnNew').addEventListener('click',newGame);
+document.getElementById('btnRestart').addEventListener('click',newGame);
+newGame();
+</script>
+</body>
+</html>
