@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tetris – Premium Browser Game</title>
+<meta name="description" content="Classic Tetris with ghost piece, hold, next preview, and vibrant gradient visuals."/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Outfit',sans-serif;min-height:100vh;
+  background:linear-gradient(135deg,#a18cd1 0%,#fbc2eb 50%,#fad0c4 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:20px;
+}
+h1{font-size:2.4rem;font-weight:900;color:#fff;text-shadow:0 3px 20px rgba(0,0,0,.2);letter-spacing:-1px}
+
+/* Layout */
+.layout{display:flex;gap:14px;align-items:flex-start}
+
+/* Side panels */
+.side{display:flex;flex-direction:column;gap:10px;width:110px}
+.panel-card{
+  background:#fff;border-radius:18px;padding:14px;
+  box-shadow:0 6px 24px rgba(0,0,0,.12);text-align:center;
+}
+.panel-card h4{font-size:.68rem;text-transform:uppercase;letter-spacing:1.5px;color:#a0aec0;font-weight:600;margin-bottom:8px}
+.panel-card .val{font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,#a18cd1,#fbc2eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+canvas.mini{display:block;border-radius:10px;margin:0 auto}
+
+/* Main canvas */
+#game{
+  display:block;border-radius:18px;
+  box-shadow:0 20px 60px rgba(0,0,0,.22);
+}
+
+/* Game wrap */
+.game-wrap{
+  background:#fff;border-radius:22px;padding:12px;
+  box-shadow:0 20px 60px rgba(0,0,0,.18);
+}
+
+/* Overlay */
+.overlay{
+  position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;background:rgba(255,255,255,.96);opacity:0;pointer-events:none;transition:opacity .3s;z-index:20;
+}
+.overlay.show{opacity:1;pointer-events:all}
+.overlay-icon{font-size:4rem}
+.overlay h2{font-size:2.2rem;font-weight:900;background:linear-gradient(135deg,#a18cd1,#fbc2eb);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.overlay p{color:#718096;font-size:.9rem;text-align:center;max-width:280px;font-weight:500}
+.btn{
+  padding:14px 40px;border:none;border-radius:16px;
+  background:linear-gradient(135deg,#a18cd1,#fbc2eb);color:#fff;
+  font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+  box-shadow:0 6px 24px rgba(161,140,209,.4);
+}
+.btn:hover{transform:translateY(-3px);box-shadow:0 10px 32px rgba(161,140,209,.6)}
+
+/* Controls */
+.controls{
+  background:#fff;border-radius:14px;padding:10px 20px;
+  display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;
+  font-size:.78rem;color:#4a5568;font-weight:500;
+  box-shadow:0 4px 16px rgba(0,0,0,.1);
+}
+kbd{
+  background:linear-gradient(135deg,#a18cd1,#fbc2eb);color:#fff;
+  border-radius:6px;padding:2px 8px;font-size:.76rem;font-weight:700;
+  font-family:'Outfit',sans-serif;
+}
+</style>
+</head>
+<body>
+<h1>🟣 Tetris</h1>
+
+<div class="layout">
+  <!-- Left side -->
+  <div class="side">
+    <div class="panel-card">
+      <h4>Hold</h4>
+      <canvas class="mini" id="holdC" width="88" height="88"></canvas>
+    </div>
+    <div class="panel-card"><h4>Score</h4><div class="val" id="score">0</div></div>
+    <div class="panel-card"><h4>Lines</h4><div class="val" id="lines">0</div></div>
+    <div class="panel-card"><h4>Level</h4><div class="val" id="level">1</div></div>
+  </div>
+
+  <!-- Board -->
+  <div class="game-wrap">
+    <canvas id="game" width="280" height="560"></canvas>
+  </div>
+
+  <!-- Right side -->
+  <div class="side">
+    <div class="panel-card">
+      <h4>Next</h4>
+      <canvas class="mini" id="nextC" width="88" height="88"></canvas>
+    </div>
+    <div class="panel-card" style="margin-top:auto">
+      <div class="controls">
+        <span><kbd>←→</kbd> Move</span>
+        <span><kbd>↑</kbd> Rotate</span>
+        <span><kbd>↓</kbd> Soft</span>
+        <span><kbd>Space</kbd> Drop</span>
+        <span><kbd>C</kbd> Hold</span>
+        <span><kbd>P</kbd> Pause</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay show" id="overlay">
+  <div class="overlay-icon" id="olIcon">🎮</div>
+  <h2 id="olTitle">Tetris</h2>
+  <p id="olMsg">Stack pieces, clear lines, and level up! Speed increases every 10 lines.</p>
+  <button class="btn" id="startBtn">▶  Start Game</button>
+</div>
+
+<script>
+const COLS=10,ROWS=20,BS=28;
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+canvas.width=COLS*BS;canvas.height=ROWS*BS;
+
+// Vibrant piece colors
+const PIECES=[
+  {shape:[[1,1,1,1]],color:'#4facfe',glow:'rgba(79,172,254,.6)'},  // I
+  {shape:[[1,0,0],[1,1,1]],color:'#a18cd1',glow:'rgba(161,140,209,.6)'},   // J
+  {shape:[[0,0,1],[1,1,1]],color:'#fda085',glow:'rgba(253,160,133,.6)'},   // L
+  {shape:[[1,1],[1,1]],color:'#f5c842',glow:'rgba(245,200,66,.6)'},          // O
+  {shape:[[0,1,1],[1,1,0]],color:'#43e97b',glow:'rgba(67,233,123,.6)'},    // S
+  {shape:[[0,1,0],[1,1,1]],color:'#fbc2eb',glow:'rgba(251,194,235,.8)'},   // T
+  {shape:[[1,1,0],[0,1,1]],color:'#f5576c',glow:'rgba(245,87,108,.6)'},    // Z
+];
+
+let board,cur,next,held,canHold,score,lines,level,running,paused,dropInterval,raf,lastDrop;
+
+function newBoard(){return Array.from({length:ROWS},()=>Array(COLS).fill(null));}
+
+function randPiece(){
+  const p=PIECES[Math.floor(Math.random()*PIECES.length)];
+  return{shape:p.shape.map(r=>[...r]),color:p.color,glow:p.glow,x:Math.floor((COLS-p.shape[0].length)/2),y:0};
+}
+
+function rotate(shape){
+  const R=shape.length,C=shape[0].length;
+  const out=Array.from({length:C},()=>Array(R).fill(0));
+  for(let r=0;r<R;r++)for(let c=0;c<C;c++)out[c][R-1-r]=shape[r][c];
+  return out;
+}
+
+function fits(piece,dx=0,dy=0,sh=piece.shape){
+  for(let r=0;r<sh.length;r++)for(let c=0;c<sh[r].length;c++){
+    if(!sh[r][c])continue;
+    const nr=piece.y+r+dy,nc=piece.x+c+dx;
+    if(nc<0||nc>=COLS||nr>=ROWS)return false;
+    if(nr>=0&&board[nr][nc])return false;
+  }return true;
+}
+
+function lock(){
+  for(let r=0;r<cur.shape.length;r++)for(let c=0;c<cur.shape[r].length;c++){
+    if(!cur.shape[r][c])continue;
+    const nr=cur.y+r,nc=cur.x+c;
+    if(nr<0){endGame();return;}
+    board[nr][nc]=cur.color;
+  }
+  clearLines();cur=next;next=randPiece();canHold=true;
+  if(!fits(cur))endGame();
+}
+
+function clearLines(){
+  let cleared=0;
+  for(let r=ROWS-1;r>=0;r--){
+    if(board[r].every(c=>c)){board.splice(r,1);board.unshift(Array(COLS).fill(null));cleared++;r++;}
+  }
+  if(!cleared)return;
+  const pts=[0,100,300,500,800][cleared]*level;
+  score+=pts;lines+=cleared;level=Math.floor(lines/10)+1;
+  dropInterval=Math.max(80,1000-level*80);
+  document.getElementById('score').textContent=score;
+  document.getElementById('lines').textContent=lines;
+  document.getElementById('level').textContent=level;
+}
+
+function ghost(){
+  let g={...cur,y:cur.y};
+  while(fits(g,0,1))g.y++;
+  return g;
+}
+
+function hardDrop(){while(fits(cur,0,1))cur.y++;lock();}
+
+function hold(){
+  if(!canHold)return;canHold=false;
+  if(!held){
+    const orig=PIECES.find(p=>p.color===cur.color);
+    held={shape:orig?orig.shape.map(r=>[...r]):cur.shape.map(r=>[...r]),color:cur.color,glow:cur.glow};
+    cur=next;next=randPiece();
+  }else{
+    const tmp={...held,x:Math.floor((COLS-held.shape[0].length)/2),y:0};
+    const orig=PIECES.find(p=>p.color===cur.color);
+    held={shape:orig?orig.shape.map(r=>[...r]):cur.shape.map(r=>[...r]),color:cur.color,glow:cur.glow};
+    cur=tmp;
+  }
+  drawMini(document.getElementById('holdC').getContext('2d'),held);
+}
+
+function drawBlock(ctx,x,y,color,glow,alpha=1){
+  ctx.globalAlpha=alpha;
+  // Block body
+  const grad=ctx.createLinearGradient(x*BS,y*BS,(x+1)*BS,(y+1)*BS);
+  grad.addColorStop(0,color);
+  grad.addColorStop(1,shadeColor(color,-20));
+  ctx.fillStyle=grad;
+  if(glow){ctx.shadowColor=glow;ctx.shadowBlur=6;}
+  roundRect2(ctx,x*BS+1,y*BS+1,BS-2,BS-2,4);ctx.fill();
+  ctx.shadowBlur=0;
+  // Highlight
+  ctx.fillStyle='rgba(255,255,255,.3)';
+  ctx.fillRect(x*BS+3,y*BS+2,BS-6,4);
+  ctx.globalAlpha=1;
+}
+
+function shadeColor(hex,pct){
+  const n=parseInt(hex.slice(1),16),r=Math.min(255,Math.max(0,(n>>16)+pct));
+  const g=Math.min(255,Math.max(0,((n>>8)&0xff)+pct));
+  const b=Math.min(255,Math.max(0,(n&0xff)+pct));
+  return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+function drawGame(){
+  // Background
+  ctx.fillStyle='#fdf8ff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Grid lines
+  ctx.strokeStyle='rgba(161,140,209,.1)';ctx.lineWidth=1;
+  for(let x=0;x<=COLS;x++){ctx.beginPath();ctx.moveTo(x*BS,0);ctx.lineTo(x*BS,canvas.height);ctx.stroke();}
+  for(let y=0;y<=ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*BS);ctx.lineTo(canvas.width,y*BS);ctx.stroke();}
+  // Board blocks
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c])drawBlock(ctx,c,r,board[r][c],null);
+  // Ghost
+  const g=ghost();
+  for(let r=0;r<g.shape.length;r++)for(let c=0;c<g.shape[r].length;c++){
+    if(!g.shape[r][c])continue;
+    ctx.globalAlpha=.18;ctx.fillStyle=cur.color;
+    roundRect2(ctx,(g.x+c)*BS+1,(g.y+r)*BS+1,BS-2,BS-2,4);ctx.fill();ctx.globalAlpha=1;
+  }
+  // Current piece
+  for(let r=0;r<cur.shape.length;r++)for(let c=0;c<cur.shape[r].length;c++){
+    if(!cur.shape[r][c])continue;
+    drawBlock(ctx,cur.x+c,cur.y+r,cur.color,cur.glow);
+  }
+  drawMini(document.getElementById('nextC').getContext('2d'),next);
+}
+
+function roundRect2(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function drawMini(c,piece){
+  const W=88;c.fillStyle='#fdf8ff';c.fillRect(0,0,W,W);
+  if(!piece)return;
+  const bs=18;
+  const ox=Math.floor((W-piece.shape[0].length*bs)/2);
+  const oy=Math.floor((W-piece.shape.length*bs)/2);
+  for(let r=0;r<piece.shape.length;r++)for(let cc=0;cc<piece.shape[r].length;cc++){
+    if(!piece.shape[r][cc])continue;
+    c.fillStyle=piece.color;c.shadowColor=piece.glow||piece.color;c.shadowBlur=4;
+    roundRect2(c,ox+cc*bs+1,oy+r*bs+1,bs-2,bs-2,4);c.fill();
+    c.shadowBlur=0;c.fillStyle='rgba(255,255,255,.3)';c.fillRect(ox+cc*bs+3,oy+r*bs+2,bs-6,3);
+  }
+}
+
+function loop(ts){
+  raf=requestAnimationFrame(loop);
+  if(!running||paused)return;
+  if(!lastDrop)lastDrop=ts;
+  if(ts-lastDrop>dropInterval){
+    if(fits(cur,0,1))cur.y++;else lock();
+    lastDrop=ts;
+  }
+  drawGame();
+}
+
+function startGame(){
+  board=newBoard();score=0;lines=0;level=1;held=null;canHold=true;
+  dropInterval=1000;lastDrop=0;
+  cur=randPiece();next=randPiece();running=true;paused=false;
+  document.getElementById('score').textContent=0;
+  document.getElementById('lines').textContent=0;
+  document.getElementById('level').textContent=1;
+  document.getElementById('overlay').classList.remove('show');
+  drawMini(document.getElementById('holdC').getContext('2d'),null);
+  cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);
+}
+
+function endGame(){
+  running=false;cancelAnimationFrame(raf);
+  document.getElementById('olIcon').textContent='😢';
+  document.getElementById('olTitle').textContent='Game Over';
+  document.getElementById('olMsg').textContent=`Score: ${score} · Lines: ${lines} · Level: ${level}`;
+  document.getElementById('startBtn').textContent='▶  Play Again';
+  document.getElementById('overlay').classList.add('show');
+}
+
+document.addEventListener('keydown',e=>{
+  if(!running)return;
+  if(e.key==='p'||e.key==='P'){paused=!paused;return;}
+  if(paused)return;
+  switch(e.key){
+    case'ArrowLeft':if(fits(cur,-1,0))cur.x--;break;
+    case'ArrowRight':if(fits(cur,1,0))cur.x++;break;
+    case'ArrowDown':if(fits(cur,0,1))cur.y++;else lock();lastDrop=performance.now();break;
+    case'ArrowUp':{const ns=rotate(cur.shape);if(fits({...cur,shape:ns}))cur.shape=ns;break;}
+    case' ':hardDrop();e.preventDefault();break;
+    case'c':case'C':hold();break;
+  }
+  drawGame();
+});
+
+document.getElementById('startBtn').addEventListener('click',startGame);
+drawGame();
+</script>
+</body>
+</html>
